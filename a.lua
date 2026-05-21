@@ -293,7 +293,7 @@ AutoSellItemTypeDrop:OnChanged(function(Value)
         end
     end
 end)
-local AutoSellRarirtyDrop = AutoSellGroup:AddDropdown("AutoCreateDungeonTierDrop",{Text = "Raritys", AllowNull = false,Values = {"Ultimate","Legendary","Epic","Rare","Uncommon","Common"},Default={"Uncommon","Common"},Multi = true,})
+local AutoSellRarirtyDrop = AutoSellGroup:AddDropdown("AutoCreateDungeonTierDrop",{Text = "Raritys", AllowNull = false,Values = {"Ultimate","Legendary","Epic","Rare","Uncommon","Common"},Default={"Common"},Multi = true,})
 AutoSellRarirtyDrop:OnChanged(function(Value)
     table.clear(Settings.AutoSell.Raritys)
     for i, v in pairs(Value) do
