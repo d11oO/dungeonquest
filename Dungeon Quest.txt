@@ -1,14 +1,13 @@
+repeat task.wait() until game:IsLoaded()
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local httprequest = (syn and syn.request) or http and http.request or http_request or (fluxus and fluxus.request) or request
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
-local queueonteleport = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport) or nil
-game:GetService("Players").LocalPlayer.OnTeleport:Connect(function(State)
-    if State == Enum.TeleportState.Started then
-        queueonteleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/d11oO/dungeonquest/refs/heads/main/Dungeon%20Quest.txt"))()')
-    end
-end)
+		local queueonteleport = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
+		if queueonteleport then
+			queueonteleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/d11oO/astralkey/refs/heads/main/dungeonquest.lua?token=GHSAT0AAAAAAD5ZJIYKUPLLT7LJ2OOFIHJ22QPE3ZQ'))()")
+		end
 
 
 
@@ -540,9 +539,6 @@ end)
 
 Library:Notify({Title="Loaded";Text=string.format('Loaded In '..(tick()-oldTick));Duration=5})
 
-if queue_on_teleport ~= nil then
-    queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/d11oO/dungeonquest/refs/heads/main/Dungeon%20Quest.txt"))()')
-end
 
 repeat task.wait() until Character:FindFirstChild("HumanoidRootPart") and Players.LocalPlayer.PlayerGui and Players.LocalPlayer.PlayerGui:FindFirstChild("HUD") and Players.LocalPlayer.PlayerGui.HUD:FindFirstChild("Main") and Players.LocalPlayer.PlayerGui.HUD.Main:FindFirstChild("PlayerStatus") and Players.LocalPlayer.PlayerGui and Players.LocalPlayer.PlayerGui.HUD.Main.PlayerStatus:FindFirstChild("PlayerStatus") and Players.LocalPlayer.PlayerGui.HUD.Main.PlayerStatus.PlayerStatus:FindFirstChild("PlayerName")
 Functions:GetBestDungeon()
