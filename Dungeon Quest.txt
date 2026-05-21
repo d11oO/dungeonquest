@@ -1,7 +1,18 @@
-repeat task.wait() until game:IsLoaded()
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local httprequest = (syn and syn.request) or http and http.request or http_request or (fluxus and fluxus.request) or request
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local queueonteleport = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport) or nil
+game:GetService("Players").LocalPlayer.OnTeleport:Connect(function(State)
+    if State == Enum.TeleportState.Started then
+        queueonteleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/d11oO/dungeonquest/refs/heads/main/Dungeon%20Quest.txt"))()')
+    end
+end)
+
+
 
 --Locals
-local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Character = Players.LocalPlayer.Character
 local WaitingToTp = false
@@ -203,7 +214,7 @@ UseSkillsToggle:OnChanged(function(value)
     Settings.AutoFarm.UseSkills = value
 end)
 NormalFarm:AddDivider()
-local TeleportDelaySlider = NormalFarm:AddSlider("TeleportDelaySlider",{Text = "Teleport Delay",Default = 3,Min = 1,Max = 4,Rounding = 1})
+local TeleportDelaySlider = NormalFarm:AddSlider("TeleportDelaySlider",{Text = "Teleport Delay",Default = 2,Min = 1,Max = 4,Rounding = 1})
 TeleportDelaySlider:OnChanged(function(Value)
     Settings.AutoFarm.Delay = Value
 end)
@@ -442,10 +453,13 @@ while task.wait(0.01) do
                     end
                 else
                         local args2 = { "AF95B32B-B5E7-4FCD-9D45-7D01113413EF" }
+                        local args3 = { "37A95F82-4FAF-460B-87A4-528F0E8957AC" }
                         local blasts = Players.LocalPlayer.Backpack:FindFirstChild("Chain Lightning") or Players.LocalPlayer.Character:FindFirstChild("Chain Lightning")
                         if blasts and blasts:FindFirstChild("abilityEvent") then
                             blasts.abilityEvent:FireServer(unpack(args2))
+                            blasts.abilityEvent:FireServer(unpack(args3))
                         end
+
                 end
             end
         end
@@ -527,7 +541,7 @@ end)
 Library:Notify({Title="Loaded";Text=string.format('Loaded In '..(tick()-oldTick));Duration=5})
 
 if queue_on_teleport ~= nil then
-    queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/IJustFloat/Script/refs/heads/main/DungeonQuest/Main.lua"))()')
+    queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/d11oO/astralkey/refs/heads/main/dungeonquest.lua?token=GHSAT0AAAAAAD5ZJIYKNN4HZ5KUVVFXS3TW2QPDP6Q"))()')
 end
 
 repeat task.wait() until Character:FindFirstChild("HumanoidRootPart") and Players.LocalPlayer.PlayerGui and Players.LocalPlayer.PlayerGui:FindFirstChild("HUD") and Players.LocalPlayer.PlayerGui.HUD:FindFirstChild("Main") and Players.LocalPlayer.PlayerGui.HUD.Main:FindFirstChild("PlayerStatus") and Players.LocalPlayer.PlayerGui and Players.LocalPlayer.PlayerGui.HUD.Main.PlayerStatus:FindFirstChild("PlayerStatus") and Players.LocalPlayer.PlayerGui.HUD.Main.PlayerStatus.PlayerStatus:FindFirstChild("PlayerName")
