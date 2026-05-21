@@ -1,3 +1,4 @@
+print("loaded!")
 task.wait(10)
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
@@ -6,7 +7,7 @@ local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 		local queueonteleport = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
 		if queueonteleport then
-			queueonteleport("loadstring(game:HttpGet('https://github.com/d11oO/dungeonquest/edit/main/Dungeon%20Quest.txt'))()")
+			queueonteleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/d11oO/dungeonquest/refs/heads/main/asdasd.lua'))()")
 		end
 
 
