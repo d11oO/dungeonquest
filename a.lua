@@ -279,7 +279,7 @@ end)
 --Settings Group End
 
 --Auto Sell Start
-local AutoSellEnabledToggle = AutoSellGroup:AddToggle("AutoSellEnabledToggle",{Text = "Auto Sell",Default = false,Risky = false})
+local AutoSellEnabledToggle = AutoSellGroup:AddToggle("AutoSellEnabledToggle",{Text = "Auto Sell",Default = true,Risky = false})
 AutoSellEnabledToggle:AddTooltip("This Will Sell All Selected Raritys!")
 AutoSellEnabledToggle:OnChanged(function(value)
     Settings.AutoSell.Enabled = value
