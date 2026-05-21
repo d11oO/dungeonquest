@@ -214,7 +214,7 @@ UseSkillsToggle:OnChanged(function(value)
     Settings.AutoFarm.UseSkills = value
 end)
 NormalFarm:AddDivider()
-local TeleportDelaySlider = NormalFarm:AddSlider("TeleportDelaySlider",{Text = "Teleport Delay",Default = 2,Min = 1,Max = 4,Rounding = 1})
+local TeleportDelaySlider = NormalFarm:AddSlider("TeleportDelaySlider",{Text = "Teleport Delay",Default = 2.3,Min = 1,Max = 4,Rounding = 1})
 TeleportDelaySlider:OnChanged(function(Value)
     Settings.AutoFarm.Delay = Value
 end)
