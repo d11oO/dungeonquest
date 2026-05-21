@@ -1,5 +1,5 @@
 print("loaded!")
-task.wait(10)
+task.wait(5)
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 local httprequest = (syn and syn.request) or http and http.request or http_request or (fluxus and fluxus.request) or request
