@@ -1,4 +1,4 @@
-print("loaded!")
+print("loaded - v3!")
 task.wait(5)
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
@@ -439,19 +439,19 @@ task.spawn(function()
         end
     end 
 end)
-game:GetService().Heartbeat:Connect(function()
+game:GetService("RunService").Heartbeat:Connect(function()
     if Settings.AutoFarm.UseSkills == true then
         task.spawn(function()
-        if Players.LocalPlayer and Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-            local humanoid = Players.LocalPlayer.Character.Humanoid
-            if humanoid.Health > 0 then -- Check if the local player is alive
-                if Players.LocalPlayer.Backpack:FindFirstChild("Demonic Curse") then
-                    local args1 = { "158331A6-FAAC-49AC-8955-AD6710AB5AD9" }
-                    local orb = Players.LocalPlayer.Backpack:FindFirstChild("Demonic Curse") or Players.LocalPlayer.Character:FindFirstChild("Demonic Curse")
-                    if orb and orb:FindFirstChild("spellEvent") then
-                        orb.spellEvent:FireServer(unpack(args1))
-                    end
-                else
+            if Players.LocalPlayer and Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                local humanoid = Players.LocalPlayer.Character.Humanoid
+                if humanoid.Health > 0 then -- Check if the local player is alive
+                    if Players.LocalPlayer.Backpack:FindFirstChild("Demonic Curse") then
+                        local args1 = { "158331A6-FAAC-49AC-8955-AD6710AB5AD9" }
+                        local orb = Players.LocalPlayer.Backpack:FindFirstChild("Demonic Curse") or Players.LocalPlayer.Character:FindFirstChild("Demonic Curse")
+                        if orb and orb:FindFirstChild("spellEvent") then
+                            orb.spellEvent:FireServer(unpack(args1))
+                        end
+                    else
                         local args2 = { "AF95B32B-B5E7-4FCD-9D45-7D01113413EF" }
                         local args3 = { "37A95F82-4FAF-460B-87A4-528F0E8957AC" }
                         local blasts = Players.LocalPlayer.Backpack:FindFirstChild("Chain Lightning") or Players.LocalPlayer.Character:FindFirstChild("Chain Lightning")
@@ -459,13 +459,12 @@ game:GetService().Heartbeat:Connect(function()
                             blasts.abilityEvent:FireServer(unpack(args2))
                             blasts.abilityEvent:FireServer(unpack(args3))
                         end
-
+                    end
                 end
             end
-        end
-    end)
+        end)
+    end
 end)
-end
 workspace.ChildAdded:Connect(function(child)
     if Settings.DebugMode == false then
         if child:IsA("Part") and child.Name == "pulseWavesWave" then
