@@ -439,7 +439,7 @@ task.spawn(function()
         end
     end 
 end)
-while task.wait(0.01) do
+game:GetService().Heartbeat:Connect(function()
     if Settings.AutoFarm.UseSkills == true then
         task.spawn(function()
         if Players.LocalPlayer and Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
@@ -464,7 +464,7 @@ while task.wait(0.01) do
             end
         end
     end)
-end
+end)
 end
 workspace.ChildAdded:Connect(function(child)
     if Settings.DebugMode == false then
