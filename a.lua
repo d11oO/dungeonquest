@@ -359,7 +359,7 @@ function Functions:Teleport(TargetCFrame)
             -- Ensure we enforce a strict baseline safety limit relative to the enemy's absolute center position
             targetHeightY = math.max(targetHeightY, enemyPos.Y - 6)
 
-            desiredPos = Vector3.new(enemyPos.X, targetHeightY - 3, enemyPos.Z)
+            desiredPos = Vector3.new(enemyPos.X, targetHeightY - 5, enemyPos.Z)
             lookDir = Vector3.new(enemyPos.X - currentPos.X, 0, enemyPos.Z - currentPos.Z).Unit
         else
             if #threats > 0 then
