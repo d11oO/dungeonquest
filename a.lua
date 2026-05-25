@@ -1,4 +1,4 @@
-print("loaded - v3!")
+print("loaded - v5!")
 task.wait(5)
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
@@ -83,70 +83,345 @@ function Functions:GetInventoryItems()
     end
     return tbl
 end
+local RunService = game:GetService("RunService")
 
-function Functions:Teleport(Cframe)
-    if not Character:FindFirstChild("HumanoidRootPart") then return end
-    LastplayerPos = Character:GetPivot().p
-    if WaitingToTp == true then return end
-    local bodyPosition = Character.HumanoidRootPart:FindFirstChildOfClass("BodyPosition")
-    local bodyGyro = Character.HumanoidRootPart:FindFirstChildOfClass("BodyGyro")
-    if not Character.HumanoidRootPart:FindFirstChildOfClass("BodyGyro") then
-        bodyGyro = Instance.new("BodyGyro")
-        bodyGyro.MaxTorque = Vector3.new(400000, 400000, 400000);bodyGyro.CFrame = Character.HumanoidRootPart.CFrame;bodyGyro.D = 500;bodyGyro.Parent = Character.HumanoidRootPart
-    end
-    if not Character.HumanoidRootPart:FindFirstChildOfClass("BodyPosition") then
-        bodyPosition = Instance.new("BodyPosition")
-        bodyPosition.MaxForce = Vector3.new(400000, 400000, 400000);bodyPosition.Position = Cframe.Position;bodyPosition.D = 300;bodyPosition.Parent = Character.HumanoidRootPart;Character.HumanoidRootPart.Velocity = Vector3.zero
-    end
-    local oldTime = tick()
-    WaitingToTp = true
-    Character.HumanoidRootPart.Anchored = false
-    repeat task.wait()
-        if Character:FindFirstChild("HumanoidRootPart") and bodyPosition ~= nil and bodyGyro ~= nil then
-            Character:PivotTo(CFrame.new(Cframe.p + Vector3.new(0, Settings.AutoFarm.Distance * 2, 0))* CFrame.Angles(math.rad(-90), 0, 0))
-            bodyPosition.Position = Cframe.Position + Vector3.new(0, Settings.AutoFarm.Distance * 2, 0)
-            bodyGyro.CFrame = CFrame.new(Character:GetPivot().p, Cframe.Position) * CFrame.Angles(0, 0, 0)
-        end
-    until tick() - oldTime >= Settings.AutoFarm.Delay or not Character:FindFirstChild("HumanoidRootPart")
-    WaitingToTp = false
-    if Character:FindFirstChild("HumanoidRootPart") then
-        Character.HumanoidRootPart.Anchored = true
-        bodyPosition:Destroy()
-    end
-end
+local movementConnection = nil
+local isMoving            = false
+local currentTarget      = nil
+local bodyVelocity        = nil
+local bodyGyro            = nil
+
+local lockedSafePos   = nil
+local dodgeLockTimer  = 0
+local isLockedDodging = false
+
+local threatVelocityHistory = {}
+local Functions = {} 
+
+local DODGE_DIRECTIONS = {
+    Vector3.new( 1, 0,  0), Vector3.new(-1, 0,  0), 
+    Vector3.new( 1, 0,  1).Unit, Vector3.new(-1, 0,  1).Unit, 
+    Vector3.new( 1, 0, -1).Unit, Vector3.new(-1, 0, -1).Unit, 
+    Vector3.new( 0, 0,  1), Vector3.new( 0, 0, -1), 
+}
+
+-- ── Enemy Scanning ───────────────────────────────────────────────────────────
+
 function Functions:GetEnemys()
-    if not workspace:FindFirstChild("dungeon") then 
-        return workspace:FindFirstChild("enemies"):GetChildren()
+    local dungeon = workspace:FindFirstChild("dungeon")
+    if not dungeon then
+        local enemies = workspace:FindFirstChild("enemies")
+        return enemies and enemies:GetChildren() or {}
     end
-    for i, v in pairs(workspace.dungeon:GetChildren()) do
-        if v:FindFirstChild("enemyFolder") and v.enemyFolder:FindFirstChildOfClass("Model") then
-            return v.enemyFolder:GetChildren()
+    for _, room in ipairs(dungeon:GetChildren()) do
+        local folder = room:FindFirstChild("enemyFolder")
+        if folder and folder:FindFirstChildOfClass("Model") then
+            return folder:GetChildren()
         end
     end
-    return nil
+    return {}
 end
-function Functions:GetClosestEnemy()
-    if not Character:FindFirstChild("HumanoidRootPart") then return end
-    if Functions:GetEnemys() == nil then return end
 
-    local closestEnemy = nil
-    local highestHealthEnemy = nil
-    local shortestDistance = math.huge
-    local maxHealth = -math.huge
-    for _, v in pairs(Functions:GetEnemys()) do
-        local enemyPosition = v:FindFirstChild("HumanoidRootPart") and v.HumanoidRootPart.Position
-        local enemyHumanoid = v:FindFirstChild("Humanoid")
-        if enemyPosition and enemyHumanoid then
-            local distance = (Character.HumanoidRootPart.Position - enemyPosition).Magnitude
-            if distance < shortestDistance or (distance == shortestDistance and enemyHumanoid.MaxHealth > maxHealth) then
-                shortestDistance = distance
-                closestEnemy = v
-                maxHealth = enemyHumanoid.MaxHealth
+function Functions:GetClosestEnemy()
+    if not Character or not Character:FindFirstChild("HumanoidRootPart") then return nil end
+    local playerPos = Character.HumanoidRootPart.Position
+    local closest, shortestDist = nil, math.huge
+    
+    for _, v in ipairs(Functions:GetEnemys()) do
+        local hrp = v:FindFirstChild("HumanoidRootPart")
+        local hum = v:FindFirstChild("Humanoid")
+        if hrp and hum and hum.Health > 0 then
+            local dist = (playerPos - hrp.Position).Magnitude
+            if dist < shortestDist then
+                shortestDist = dist
+                closest      = v
             end
         end
     end
+    return closest
+end
 
-    return closestEnemy
+-- ── Threat Solver ────────────────────────────────────────────────────────────
+
+local function GetThreatVolumes(ignoreEnemy)
+    local threats = {}
+    for _, v in ipairs(workspace:GetChildren()) do
+        if v:IsA("BasePart") and (v.Name == "Part" or v.Name == "Hitbox" or v.Name == "AoE" or v.Name == "Danger" or v.Name == "BeamImpact") then
+            threats[#threats + 1] = v
+        end
+    end
+    
+    local enemies = Functions:GetEnemys()
+    if enemies then
+        for _, v in ipairs(enemies) do
+            local hrp = v:FindFirstChild("HumanoidRootPart")
+            local hum = v:FindFirstChild("Humanoid")
+            if hrp and hum and hum.Health > 0 and v ~= ignoreEnemy then
+                threats[#threats + 1] = hrp
+            end
+        end
+    end
+    return threats
+end
+
+local function IsPositionSafe(pos, threats, dt)
+    dt = dt or 0.03
+    
+    for _, part in ipairs(threats) do
+        local partPos = part.Position
+        local predictedCFrame = part.CFrame
+        
+        local history = threatVelocityHistory[part]
+        if history then
+            local realVelocity = (partPos - history.LastPosition) / dt
+            if realVelocity.Magnitude > 1 then
+                local predictedCenter = partPos + (realVelocity * 0.18)
+                predictedCFrame = part.CFrame - partPos + predictedCenter
+            end
+            history.LastPosition = partPos
+        else
+            threatVelocityHistory[part] = { LastPosition = partPos }
+        end
+        
+        local localPos = predictedCFrame:PointToObjectSpace(pos)
+        local s = part.Size
+        
+        local padX = (s.X * 0.5 * 1.20) + 4
+        local padY = (s.Y * 0.5 * 1.20) + 20 
+        local padZ = (s.Z * 0.5 * 1.20) + 4
+        
+        if math.abs(localPos.X) < padX and math.abs(localPos.Y) < padY and math.abs(localPos.Z) < padZ then
+            return false
+        end
+    end
+    return true
+end
+
+local function FindSafePosition(desired, threats, dt)
+    local bestPoint = desired
+    local lowestDangerScore = math.huge
+
+    for i = 0, 15 do
+        local angle = (i / 16) * (math.pi * 2)
+        local radius = 12 
+        local candidate = Vector3.new(desired.X + math.cos(angle) * radius, desired.Y, desired.Z + math.sin(angle) * radius)
+        
+        local dangerScore = 0
+        for _, part in ipairs(threats) do
+            local dist = (candidate - part.Position).Magnitude
+            local s = part.Size
+            local maxHazardDim = math.max(s.X, s.Z)
+            
+            if dist < (maxHazardDim + 6) then
+                dangerScore = dangerScore + (1000 / math.max(dist, 1))
+            else
+                dangerScore = dangerScore + (1 / math.max(dist, 1))
+            end
+        end
+
+        if dangerScore < lowestDangerScore then
+            lowestDangerScore = dangerScore
+            bestPoint = candidate
+        end
+    end
+    return bestPoint
+end
+
+local function CleanUpPhysics()
+    if movementConnection then movementConnection:Disconnect() movementConnection = nil end
+    
+    local hrp = Character and Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        for _, inst in ipairs(hrp:GetChildren()) do
+            if inst:IsA("BodyVelocity") or inst:IsA("BodyGyro") then
+                inst:Destroy()
+            end
+        end
+        hrp.Anchored = false
+        hrp.Velocity = Vector3.zero
+    end
+    
+    isLockedDodging = false
+    lockedSafePos = nil
+    isMoving = false
+    threatVelocityHistory = {}
+end
+
+-- ── Main High-Velocity Engine ───────────────────────────────────────────────
+function Functions:Teleport(TargetCFrame)
+    if not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
+    LastplayerPos = Character:GetPivot().p
+
+    currentTarget = TargetCFrame
+
+    if isMoving then return end
+    isMoving = true
+
+    local hrp      = Character.HumanoidRootPart
+    local humanoid = Character:FindFirstChildOfClass("Humanoid")
+
+    for _, inst in ipairs(hrp:GetChildren()) do
+        if inst:IsA("BodyPosition") or inst:IsA("BodyGyro") or inst:IsA("BodyVelocity") or inst:IsA("LinearVelocity") or inst:IsA("AlignOrientation") then
+            inst:Destroy()
+        end
+    end
+
+    hrp.Anchored = false
+    if humanoid then
+        humanoid.PlatformStand = false
+    end
+
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(5000000, 5000000, 5000000) 
+    bodyVelocity.Velocity = Vector3.zero
+    bodyVelocity.Parent = hrp
+
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(600000, 600000, 600000)
+    bodyGyro.D = 250
+    bodyGyro.CFrame = hrp.CFrame
+    bodyGyro.Parent = hrp
+
+    local APPROACH_SPEED = math.min(Settings.AutoFarm.Speed or 30, 30)
+    local DODGE_SPEED    = 35 
+
+    movementConnection = RunService.Heartbeat:Connect(function(dt)
+        local hrp      = Character:FindFirstChild("HumanoidRootPart")
+        local humanoid = Character:FindFirstChildOfClass("Humanoid")
+        
+        if not hrp or not bodyVelocity or not bodyGyro then
+            CleanUpPhysics()
+            return
+        end
+
+        -- Collision disabling loop
+        for _, part in ipairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+
+        local closestEnemy = Functions:GetClosestEnemy()
+        local threats      = GetThreatVolumes(closestEnemy)
+        local currentPos   = hrp.Position
+
+        for part in pairs(threatVelocityHistory) do
+            if not part or not part.Parent then
+                threatVelocityHistory[part] = nil
+            end
+        end
+
+        local desiredPos = nil
+        local enemyPos   = nil
+        local lookDir    = hrp.CFrame.LookVector
+
+        if closestEnemy and closestEnemy:FindFirstChild("HumanoidRootPart") then
+            currentTarget = closestEnemy.HumanoidRootPart.CFrame
+            enemyPos = currentTarget.Position
+            
+            local enemyHrpSize = closestEnemy.HumanoidRootPart.Size
+            local maxHrpDim = math.max(enemyHrpSize.X, enemyHrpSize.Y, enemyHrpSize.Z)
+            
+            -- FIX: Match the central height plane of the enemy straight across
+            local targetHeightY = enemyPos.Y
+            
+            -- If the boss has an oversized HRP box, pull the height down slightly 
+            -- relative to the center, but clamp it so you never fall into the floor.
+            if maxHrpDim > 5 then
+                targetHeightY = enemyPos.Y - (maxHrpDim * 0.12)
+            end
+
+            -- Ensure we enforce a strict baseline safety limit relative to the enemy's absolute center position
+            targetHeightY = math.max(targetHeightY, enemyPos.Y - 6)
+
+            desiredPos = Vector3.new(enemyPos.X, targetHeightY, enemyPos.Z)
+            lookDir = Vector3.new(enemyPos.X - currentPos.X, 0, enemyPos.Z - currentPos.Z).Unit
+        else
+            if #threats > 0 then
+                desiredPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z)
+                lookDir = hrp.CFrame.LookVector
+            else
+                CleanUpPhysics()
+                return
+            end
+        end
+        
+        if isLockedDodging then
+            dodgeLockTimer = dodgeLockTimer - dt
+            if dodgeLockTimer <= 0 or (lockedSafePos - currentPos).Magnitude < 2.5 then
+                isLockedDodging = false
+                lockedSafePos = nil
+            end
+        end
+
+        local safePos = nil
+
+        if isLockedDodging and lockedSafePos then
+            safePos = lockedSafePos
+        else
+            local directTravelVector = desiredPos - currentPos
+            local isPathEndangered = false
+            
+            if directTravelVector.Magnitude > 2 then
+                local lookAheadPos = currentPos + (directTravelVector.Unit * 10) 
+                if not IsPositionSafe(lookAheadPos, threats, dt) then
+                    isPathEndangered = true
+                end
+            end
+
+            local isCurrentPosEndangered = not IsPositionSafe(currentPos, threats, dt)
+            
+            if isCurrentPosEndangered or isPathEndangered then
+                isLockedDodging = true
+                dodgeLockTimer = 0.45 
+                
+                local rawDodgePos = FindSafePosition(Vector3.new(currentPos.X, desiredPos.Y, currentPos.Z), threats, dt)
+                lockedSafePos = Vector3.new(rawDodgePos.X, desiredPos.Y, rawDodgePos.Z)
+                safePos = lockedSafePos
+            else
+                safePos = FindSafePosition(desiredPos, threats, dt)
+            end
+        end
+        
+        if not closestEnemy and not isLockedDodging and IsPositionSafe(currentPos, threats, dt) then
+            CleanUpPhysics()
+            return
+        end
+
+        local travelVector = safePos - currentPos
+        local distance = travelVector.Magnitude
+
+        if distance > 0.4 then
+            local finalVelocity = Vector3.zero
+            if isLockedDodging then
+                finalVelocity = travelVector.Unit * DODGE_SPEED
+            else
+                local targetVelocity = travelVector.Unit * APPROACH_SPEED
+                if distance < 6 then
+                    targetVelocity = travelVector.Unit * math.max(4, APPROACH_SPEED * (distance / 4))
+                end
+                finalVelocity = targetVelocity
+            end
+            
+            bodyVelocity.Velocity = finalVelocity
+            hrp.Velocity = finalVelocity
+        else
+            bodyVelocity.Velocity = Vector3.zero
+            hrp.Velocity = Vector3.zero
+        end
+
+        if enemyPos then
+            local flatFacing = Vector3.new(enemyPos.X - hrp.Position.X, 0, enemyPos.Z - hrp.Position.Z)
+            if flatFacing.Magnitude > 0.01 then
+                bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + flatFacing)
+            end
+        else
+            if hrp.Velocity.Magnitude > 0.1 then
+                local moveFacing = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+                bodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + moveFacing)
+            end
+        end
+    end)
 end
 function Functions:GetBestDungeon()
     local highestLevelDungeon = 0
@@ -214,7 +489,7 @@ UseSkillsToggle:OnChanged(function(value)
     Settings.AutoFarm.UseSkills = value
 end)
 NormalFarm:AddDivider()
-local TeleportDelaySlider = NormalFarm:AddSlider("TeleportDelaySlider",{Text = "Teleport Delay",Default = 2.3,Min = 1,Max = 4,Rounding = 1})
+local TeleportDelaySlider = NormalFarm:AddSlider("TeleportDelaySlider",{Text = "Teleport Delay",Default = 2,Min = 1,Max = 4,Rounding = 1})
 TeleportDelaySlider:OnChanged(function(Value)
     Settings.AutoFarm.Delay = Value
 end)
@@ -287,7 +562,7 @@ end)
 local AutoSellItemTypeDrop = AutoSellGroup:AddDropdown("AutoCreateDungeonTierDrop",{Text = "Item Type", AllowNull = false,Values = {"weapon","ability","ring","helmet","chest"},Default={"weapon","ability","ring","helmet","chest"},Multi = true,})
 AutoSellItemTypeDrop:OnChanged(function(Value)
     table.clear(Settings.AutoSell.ItemTypes)
-    for i, v in pairs(Value) do
+    for i, v in pairs(Value) do 
         if v == true then
             table.insert(Settings.AutoSell.ItemTypes,i)
         end
@@ -544,4 +819,4 @@ repeat task.wait() until Character:FindFirstChild("HumanoidRootPart") and Player
 Functions:GetBestDungeon()
 AutoCreateDungeonNameDrop:SetValue(BestDungeon)
 AutoCreateDungeonDiffcultyDrop:SetValue(BestDifficulty)
-OldName,OldTitle = Players.LocalPlayer.PlayerGui.HUD.Main.PlayerStatus.PlayerStatus.PlayerName.Text,Character.Head.playerNameplate.Title.Text
+OldName,OldTitle = Players.LocalPlayer.PlayerGui.HUD.Main.PlayerStatus.PlayerStatus.PlayerName.Text,Character.Head.playerNameplate.Title.Textus.PlayerStatus.PlayerName.Text,Character.Head.playerNameplate.Title.Text
